@@ -30,18 +30,46 @@ double calculateRange(double velocity, double angle)
 
     angleRadians = angle * PI / 180.0;
 
-    return (velocity * velocity * sin(2 * angleRadians)) / GRAVITY;
+    return (velocity * velocity * sin(2 * angleRadians))
+           / GRAVITY;
 }
 
 
-/* Calculate the total time of flight of a projectile */
+/* Calculate total time of flight */
 double calculateTimeOfFlight(double velocity, double angle)
 {
     double angleRadians;
 
     angleRadians = angle * PI / 180.0;
 
-    return (2 * velocity * sin(angleRadians)) / GRAVITY;
+    return (2 * velocity * sin(angleRadians))
+           / GRAVITY;
+}
+
+
+/* Calculate distance between two points */
+double calculateDistance(double x1, double y1,
+                         double x2, double y2)
+{
+    double dx;
+    double dy;
+
+    dx = x2 - x1;
+    dy = y2 - y1;
+
+    return sqrt(dx * dx + dy * dy);
+}
+
+
+/* Calculate the maximum attack range of Battleship */
+double calculateBattleshipRange(double velocity)
+{
+    /*
+       Battleship can fire between 0 and 90 degrees.
+       Maximum horizontal range occurs at 45 degrees.
+    */
+
+    return calculateRange(velocity, 45.0);
 }
 
 
@@ -50,6 +78,10 @@ int main()
     int D;
     int N;
     int battleshipChoice;
+
+    double battleshipVelocity;
+    double battleshipRange;
+    double distance;
 
     Battleship B;
     EscortShip escorts[MAX_ESCORTS];
@@ -75,12 +107,9 @@ int main()
     scanf("%d", &N);
 
 
-    /* Check maximum number of escort ships */
-    if (N > MAX_ESCORTS)
+    if (N <= 0 || N > MAX_ESCORTS)
     {
-        printf("Maximum number of escort ships is %d.\n",
-               MAX_ESCORTS);
-
+        printf("Invalid number of escort ships.\n");
         return 1;
     }
 
@@ -96,11 +125,9 @@ int main()
     scanf("%d", &battleshipChoice);
 
 
-    /* Check Battleship choice */
     if (battleshipChoice < 1 || battleshipChoice > 4)
     {
-        printf("Invalid battleship choice.\n");
-
+        printf("Invalid Battleship choice.\n");
         return 1;
     }
 
@@ -132,6 +159,18 @@ int main()
     scanf("%lf", &B.y);
 
 
+    /* Get maximum Battleship shell velocity */
+    printf("\nEnter Battleship maximum shell velocity: ");
+    scanf("%lf", &battleshipVelocity);
+
+
+    if (battleshipVelocity <= 0)
+    {
+        printf("Velocity must be greater than zero.\n");
+        return 1;
+    }
+
+
     /* Generate Escort ships */
     for (int i = 0; i < N; i++)
     {
@@ -149,6 +188,11 @@ int main()
     }
 
 
+    /* Calculate Battleship maximum attack range */
+    battleshipRange =
+        calculateBattleshipRange(battleshipVelocity);
+
+
     /* Display initial conditions */
     printf("\n========== INITIAL CONDITIONS ==========\n");
 
@@ -158,6 +202,12 @@ int main()
 
     printf("Battleship Position: (%.2f, %.2f)\n",
            B.x, B.y);
+
+    printf("Battleship Maximum Velocity: %.2f m/s\n",
+           battleshipVelocity);
+
+    printf("Battleship Maximum Attack Range: %.2f m\n",
+           battleshipRange);
 
 
     /* Display Escort ships */
@@ -173,23 +223,32 @@ int main()
     }
 
 
-    /* Projectile calculation test */
-    printf("\n========== PROJECTILE TEST ==========\n");
+    /* Check which Escort ships are in range */
+    printf("\n========== BATTLESHIP ATTACK RANGE ==========\n");
 
-    double testVelocity = 100.0;
-    double testAngle = 45.0;
+    for (int i = 0; i < N; i++)
+    {
+        distance = calculateDistance(
+            B.x,
+            B.y,
+            escorts[i].x,
+            escorts[i].y
+        );
 
-    printf("Velocity: %.2f m/s\n",
-           testVelocity);
+        printf("\nE%d:\n", escorts[i].id);
 
-    printf("Angle: %.2f degrees\n",
-           testAngle);
+        printf("Distance from B: %.2f m\n",
+               distance);
 
-    printf("Range: %.2f m\n",
-           calculateRange(testVelocity, testAngle));
-
-    printf("Time of flight: %.2f seconds\n",
-           calculateTimeOfFlight(testVelocity, testAngle));
+        if (distance <= battleshipRange)
+        {
+            printf("Status: IN ATTACK RANGE\n");
+        }
+        else
+        {
+            printf("Status: OUTSIDE ATTACK RANGE\n");
+        }
+    }
 
 
     return 0;
