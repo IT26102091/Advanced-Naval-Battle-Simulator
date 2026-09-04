@@ -1,0 +1,51 @@
+ADVANCED NAVAL BATTLE SIMULATOR
+====================================
+
+Battlefield Size: 1000 x 1000
+Battleship: USS Iowa
+Battleship Type: U
+Battleship Position: (500.00, 500.00)
+Battleship Maximum Velocity: 100.00 m/s
+
+ESCORT SHIPS
+------------
+E1
+Type: EE
+Position: (876.31, 597.37)
+Minimum Velocity: 33.05 m/s
+Maximum Velocity: 53.90 m/s
+Minimum Angle: 70.00 degrees
+Impact Power: 0.04
+
+E2
+Type: EA
+Position: (456.07, 655.69)
+Minimum Velocity: 40.37 m/s
+Maximum Velocity: 86.88 m/s
+Minimum Angle: 20.00 degrees
+Impact Power: 0.08
+
+E3
+Type: ED
+Position: (375.35, 934.84)
+Minimum Velocity: 47.35 m/s
+Maximum Velocity: 58.79 m/s
+Minimum Angle: 50.00 degrees
+Impact Power: 0.05
+
+E4
+Type: EB
+Position: (59.14, 261.85)
+Minimum Velocity: 28.26 m/s
+Maximum Velocity: 56.21 m/s
+Minimum Angle: 30.00 degrees
+Impact Power: 0.06
+
+E5
+Type: EC
+Position: (567.58, 168.61)
+Minimum Velocity: 23.71 m/s
+Maximum Velocity: 82.38 m/s
+Minimum Angle: 25.00 degrees
+Impact Power: 0.07
+

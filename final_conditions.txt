@@ -1,0 +1,15 @@
+FINAL BATTLEFIELD CONDITIONS
+============================
+
+Battlefield: 1000 x 1000
+Battleship: USS Iowa
+Battleship Position: (500.00, 500.00)
+Battleship Status: SURVIVED
+
+ESCORT SHIPS
+------------
+E1 | Type: EE | Position: (876.31, 597.37) | Status: DESTROYED
+E2 | Type: EA | Position: (456.07, 655.69) | Status: DESTROYED
+E3 | Type: ED | Position: (375.35, 934.84) | Status: DESTROYED
+E4 | Type: EB | Position: (59.14, 261.85) | Status: DESTROYED
+E5 | Type: EC | Position: (567.58, 168.61) | Status: DESTROYED

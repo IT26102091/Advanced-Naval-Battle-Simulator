@@ -1,0 +1,14 @@
+ADVANCED NAVAL BATTLE SIMULATOR
+BATTLE RESULTS
+============================
+
+Battleship B: SURVIVED
+Escort ships destroyed: 5
+Battle end time: 5.18 seconds
+
+DESTROYED ESCORT SHIPS
+E1 - Time to hit: 3.96 seconds
+E2 - Time to hit: 1.62 seconds
+E3 - Time to hit: 4.65 seconds
+E4 - Time to hit: 5.18 seconds
+E5 - Time to hit: 3.43 seconds
