@@ -1,13 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <math.h>
 
 #define MAX_ESCORTS 100
 #define MAX_POINTS 100
-#define GRAVITY 9.81
 #define PI 3.14159265358979323846
-
+#define GRAVITY 9.81
 
 /* =========================================
    STRUCTURES
@@ -50,35 +48,26 @@ typedef struct
 {
     double x;
     double y;
-
 } Point;
 
 
 /* =========================================
-   DEGREE TO RADIAN
+   FUNCTIONS
    ========================================= */
+
+double randomDouble(double min, double max)
+{
+    return min +
+           ((double)rand() / RAND_MAX) *
+           (max - min);
+}
+
 
 double degreesToRadians(double angle)
 {
     return angle * PI / 180.0;
 }
 
-
-/* =========================================
-   RANDOM DECIMAL NUMBER
-   ========================================= */
-
-double randomDouble(double minimum, double maximum)
-{
-    return minimum +
-           ((double)rand() / RAND_MAX) *
-           (maximum - minimum);
-}
-
-
-/* =========================================
-   DISTANCE BETWEEN TWO POINTS
-   ========================================= */
 
 double calculateDistance(double x1, double y1,
                          double x2, double y2)
@@ -90,25 +79,26 @@ double calculateDistance(double x1, double y1,
 }
 
 
-/* =========================================
-   PROJECTILE RANGE
-   ========================================= */
+/*
+   Projectile range:
 
+   R = V^2 sin(2theta) / g
+*/
 double calculateRange(double velocity, double angle)
 {
-    double angleRadians;
-
-    angleRadians = degreesToRadians(angle);
+    double radians = degreesToRadians(angle);
 
     return (velocity * velocity *
-            sin(2 * angleRadians)) / GRAVITY;
+            sin(2.0 * radians)) / GRAVITY;
 }
 
 
-/* =========================================
-   FIND FIRING ANGLE
-   ========================================= */
+/*
+   Find a possible firing angle.
 
+   minimumAngle is used for Simulation 2
+   after the gun becomes jammed.
+*/
 double calculateFiringAngle(double velocity,
                             double distance,
                             double minimumAngle)
@@ -117,27 +107,43 @@ double calculateFiringAngle(double velocity,
     double angle1;
     double angle2;
 
+    if (velocity <= 0)
+        return -1.0;
+
     value = (distance * GRAVITY) /
             (velocity * velocity);
 
+    /*
+       Target cannot be reached.
+    */
     if (value > 1.0)
-    {
         return -1.0;
-    }
 
-    angle1 = 0.5 *
-             asin(value) *
-             180.0 / PI;
+    /*
+       Numerical protection.
+    */
+    if (value < 0.0)
+        value = 0.0;
+
+    angle1 =
+        0.5 * asin(value) * 180.0 / PI;
 
     angle2 = 90.0 - angle1;
 
-
-    if (angle1 >= minimumAngle)
+    /*
+       Try the lower angle first.
+    */
+    if (angle1 >= minimumAngle &&
+        angle1 <= 90.0)
     {
         return angle1;
     }
 
-    if (angle2 >= minimumAngle)
+    /*
+       Try the higher angle.
+    */
+    if (angle2 >= minimumAngle &&
+        angle2 <= 90.0)
     {
         return angle2;
     }
@@ -146,383 +152,228 @@ double calculateFiringAngle(double velocity,
 }
 
 
-/* =========================================
-   PROJECTILE TIME
-   ========================================= */
-
 double calculateTimeOfFlight(double velocity,
                              double angle)
 {
-    double angleRadians;
+    double radians =
+        degreesToRadians(angle);
 
-    angleRadians = degreesToRadians(angle);
-
-    return (2 * velocity *
-            sin(angleRadians)) / GRAVITY;
+    return (2.0 * velocity *
+            sin(radians)) / GRAVITY;
 }
 
 
-/* =========================================
-   BATTLESHIP NAME
-   ========================================= */
-
-const char* getBattleshipName(char type)
+const char *getBattleshipName(char type)
 {
-    if (type == 'U')
-        return "USS Iowa";
+    switch (type)
+    {
+        case 'U':
+            return "USS Iowa";
 
-    if (type == 'M')
-        return "MS King George V";
+        case 'M':
+            return "MS King George V";
 
-    if (type == 'R')
-        return "Richelieu";
+        case 'R':
+            return "Richelieu";
 
-    return "Sovetsky Soyuz-class";
+        case 'S':
+            return "Sovetsky Soyuz-class";
+
+        default:
+            return "Unknown";
+    }
 }
 
 
-/* =========================================
-   ESCORT SHIP PROPERTIES
-   ========================================= */
+/*
+   Set properties according to the assignment table.
 
+   EA = impact 0.08, minimum angle 20
+   EB = impact 0.06, minimum angle 30
+   EC = impact 0.07, minimum angle 25
+   ED = impact 0.05, minimum angle 50
+   EE = impact 0.04, minimum angle 70
+*/
 void setEscortProperties(EscortShip *ship,
                          double battleshipMaxVelocity)
 {
-    if (ship->type == 'A')
+    switch (ship->type)
     {
-        ship->minAngle = 20.0;
-        ship->impactPower = 0.08;
+        case 'A':
+            ship->impactPower = 0.08;
+            ship->minAngle = 20.0;
 
-        ship->minVelocity =
-            randomDouble(
-                0.2 * battleshipMaxVelocity,
-                0.5 * battleshipMaxVelocity
-            );
+            ship->minVelocity =
+                randomDouble(
+                    0.2 * battleshipMaxVelocity,
+                    0.5 * battleshipMaxVelocity
+                );
 
-        ship->maxVelocity =
-            randomDouble(
-                0.8 * battleshipMaxVelocity,
-                1.2 * battleshipMaxVelocity
-            );
-    }
+            ship->maxVelocity =
+                1.2 * battleshipMaxVelocity;
+            break;
 
-    else if (ship->type == 'B')
-    {
-        ship->minAngle = 30.0;
-        ship->impactPower = 0.06;
 
-        ship->minVelocity =
-            randomDouble(
-                0.2 * battleshipMaxVelocity,
-                0.5 * battleshipMaxVelocity
-            );
+        case 'B':
+            ship->impactPower = 0.06;
+            ship->minAngle = 30.0;
 
-        ship->maxVelocity =
-            randomDouble(
-                0.5 * battleshipMaxVelocity,
-                0.9 * battleshipMaxVelocity
-            );
-    }
+            ship->minVelocity =
+                randomDouble(
+                    0.2 * battleshipMaxVelocity,
+                    0.5 * battleshipMaxVelocity
+                );
 
-    else if (ship->type == 'C')
-    {
-        ship->minAngle = 25.0;
-        ship->impactPower = 0.07;
+            ship->maxVelocity =
+                randomDouble(
+                    0.5 * battleshipMaxVelocity,
+                    0.9 * battleshipMaxVelocity
+                );
+            break;
 
-        ship->minVelocity =
-            randomDouble(
-                0.2 * battleshipMaxVelocity,
-                0.5 * battleshipMaxVelocity
-            );
 
-        ship->maxVelocity =
-            randomDouble(
-                0.5 * battleshipMaxVelocity,
-                0.9 * battleshipMaxVelocity
-            );
-    }
+        case 'C':
+            ship->impactPower = 0.07;
+            ship->minAngle = 25.0;
 
-    else if (ship->type == 'D')
-    {
-        ship->minAngle = 50.0;
-        ship->impactPower = 0.05;
+            ship->minVelocity =
+                randomDouble(
+                    0.2 * battleshipMaxVelocity,
+                    0.5 * battleshipMaxVelocity
+                );
 
-        ship->minVelocity =
-            randomDouble(
-                0.2 * battleshipMaxVelocity,
-                0.5 * battleshipMaxVelocity
-            );
+            ship->maxVelocity =
+                randomDouble(
+                    0.5 * battleshipMaxVelocity,
+                    0.9 * battleshipMaxVelocity
+                );
+            break;
 
-        ship->maxVelocity =
-            randomDouble(
-                0.5 * battleshipMaxVelocity,
-                0.9 * battleshipMaxVelocity
-            );
-    }
 
-    else
-    {
-        ship->minAngle = 70.0;
-        ship->impactPower = 0.04;
+        case 'D':
+            ship->impactPower = 0.05;
+            ship->minAngle = 50.0;
 
-        ship->minVelocity =
-            randomDouble(
-                0.2 * battleshipMaxVelocity,
-                0.5 * battleshipMaxVelocity
-            );
+            ship->minVelocity =
+                randomDouble(
+                    0.2 * battleshipMaxVelocity,
+                    0.5 * battleshipMaxVelocity
+                );
 
-        ship->maxVelocity =
-            randomDouble(
-                0.5 * battleshipMaxVelocity,
-                0.9 * battleshipMaxVelocity
-            );
+            ship->maxVelocity =
+                randomDouble(
+                    0.5 * battleshipMaxVelocity,
+                    0.9 * battleshipMaxVelocity
+                );
+            break;
+
+
+        case 'E':
+            ship->impactPower = 0.04;
+            ship->minAngle = 70.0;
+
+            ship->minVelocity =
+                randomDouble(
+                    0.2 * battleshipMaxVelocity,
+                    0.5 * battleshipMaxVelocity
+                );
+
+            ship->maxVelocity =
+                randomDouble(
+                    0.5 * battleshipMaxVelocity,
+                    0.9 * battleshipMaxVelocity
+                );
+            break;
     }
 }
 
 
 /* =========================================
-   MAIN PROGRAM
+   COPY ESCORT SHIPS
    ========================================= */
 
-int main()
+void copyEscorts(EscortShip source[],
+                 EscortShip destination[],
+                 int N)
 {
-    int D;
-    int N;
-    int k;
-    int battleshipChoice;
-
-    int battleshipDestroyed = 0;
-
-    double battleshipMaxVelocity;
-
-    Battleship B;
-    EscortShip escorts[MAX_ESCORTS];
-    Point path[MAX_POINTS];
-
-    char escortTypes[] =
-        {'A', 'B', 'C', 'D', 'E'};
-
-    FILE *initialFile;
-    FILE *resultFile;
-
-
-    srand((unsigned int)time(NULL));
-
-
-    /* =========================================
-       TITLE
-       ========================================= */
-
-    printf("========================================\n");
-    printf("      ADVANCED NAVAL BATTLE SIMULATOR\n");
-    printf("========================================\n");
-
-
-    /* =========================================
-       INPUT BATTLEFIELD
-       ========================================= */
-
-    printf("\nEnter battlefield size D: ");
-    scanf("%d", &D);
-
-    if (D <= 0)
-    {
-        printf("Invalid battlefield size.\n");
-        return 1;
-    }
-
-
-    /* =========================================
-       INPUT ESCORT SHIPS
-       ========================================= */
-
-    printf("Enter number of escort ships: ");
-    scanf("%d", &N);
-
-    if (N <= 0 || N > MAX_ESCORTS)
-    {
-        printf("Invalid number of escort ships.\n");
-        return 1;
-    }
-
-
-    /* =========================================
-       INPUT NUMBER OF PATH POINTS
-       ========================================= */
-
-    printf("Enter number of path points k: ");
-    scanf("%d", &k);
-
-    if (k <= 0 || k > MAX_POINTS)
-    {
-        printf("Invalid number of path points.\n");
-        return 1;
-    }
-
-
-    /* =========================================
-       BATTLESHIP SELECTION
-       ========================================= */
-
-    printf("\nSelect Battleship:\n");
-
-    printf("1. USS Iowa\n");
-    printf("2. MS King George V\n");
-    printf("3. Richelieu\n");
-    printf("4. Sovetsky Soyuz-class\n");
-
-    printf("Enter choice: ");
-    scanf("%d", &battleshipChoice);
-
-
-    if (battleshipChoice < 1 ||
-        battleshipChoice > 4)
-    {
-        printf("Invalid Battleship choice.\n");
-        return 1;
-    }
-
-
-    if (battleshipChoice == 1)
-        B.type = 'U';
-
-    else if (battleshipChoice == 2)
-        B.type = 'M';
-
-    else if (battleshipChoice == 3)
-        B.type = 'R';
-
-    else
-        B.type = 'S';
-
-
-    /* =========================================
-       BATTLESHIP VELOCITY
-       ========================================= */
-
-    printf("\nEnter Battleship maximum shell velocity: ");
-    scanf("%lf", &battleshipMaxVelocity);
-
-    if (battleshipMaxVelocity <= 0)
-    {
-        printf("Velocity must be greater than zero.\n");
-        return 1;
-    }
-
-    B.maxVelocity = battleshipMaxVelocity;
-    B.destroyed = 0;
-
-
-    /* =========================================
-       GENERATE ESCORT SHIPS
-       ========================================= */
-
     for (int i = 0; i < N; i++)
     {
-        escorts[i].id = i + 1;
-
-        escorts[i].type =
-            escortTypes[rand() % 5];
-
-        escorts[i].x =
-            randomDouble(0.0, (double)D);
-
-        escorts[i].y =
-            randomDouble(0.0, (double)D);
-
-        escorts[i].destroyed = 0;
-
-        setEscortProperties(
-            &escorts[i],
-            B.maxVelocity
-        );
+        destination[i] = source[i];
     }
+}
 
 
-    /* =========================================
-       GENERATE BATTLESHIP PATH
-       ========================================= */
+/* =========================================
+   SAVE INITIAL CONDITIONS
+   ========================================= */
 
-    printf("\nGenerating Battleship path...\n");
+void saveInitialConditions(
+    int D,
+    int N,
+    int k,
+    int t,
+    double thetaMin,
+    Battleship *B,
+    EscortShip escorts[],
+    Point path[])
+{
+    FILE *file =
+        fopen("initial_conditions.txt", "w");
 
-    for (int i = 0; i < k; i++)
+    if (file == NULL)
     {
-        path[i].x =
-            randomDouble(0.0, (double)D);
-
-        path[i].y =
-            randomDouble(0.0, (double)D);
+        printf("Error creating initial_conditions.txt\n");
+        return;
     }
 
-
-    /* =========================================
-       INITIAL POSITION
-       ========================================= */
-
-    B.x = path[0].x;
-    B.y = path[0].y;
-
-
-    /* =========================================
-       SAVE INITIAL CONDITIONS
-       ========================================= */
-
-    initialFile =
-        fopen("initial_conditions_1B.txt", "w");
-
-
-    if (initialFile == NULL)
-    {
-        printf("Error creating initial conditions file.\n");
-        return 1;
-    }
-
-
-    fprintf(initialFile,
+    fprintf(file,
             "ADVANCED NAVAL BATTLE SIMULATOR\n");
+    fprintf(file,
+            "PART 1-B - INITIAL CONDITIONS\n");
+    fprintf(file,
+            "========================================\n\n");
 
-    fprintf(initialFile,
-            "PART 1-B - SIMULATION 1\n");
-
-    fprintf(initialFile,
-            "====================================\n\n");
-
-
-    fprintf(initialFile,
+    fprintf(file,
             "Battlefield Size: %d x %d\n",
             D, D);
 
-    fprintf(initialFile,
+    fprintf(file,
             "Number of Escort Ships: %d\n",
             N);
 
-    fprintf(initialFile,
-            "Number of Path Points: %d\n",
+    fprintf(file,
+            "Number of Path Points k: %d\n",
             k);
 
-    fprintf(initialFile,
+    fprintf(file,
+            "Gun Jam Iteration t: %d\n",
+            t);
+
+    fprintf(file,
+            "Theta Minimum: %.2f degrees\n",
+            thetaMin);
+
+    fprintf(file,
             "Battleship: %s\n",
-            getBattleshipName(B.type));
+            getBattleshipName(B->type));
 
-    fprintf(initialFile,
-            "Battleship Maximum Velocity: %.2f m/s\n\n",
-            B.maxVelocity);
+    fprintf(file,
+            "Battleship Position: (%.2f, %.2f)\n",
+            B->x, B->y);
+
+    fprintf(file,
+            "Battleship Maximum Shell Velocity: %.2f m/s\n\n",
+            B->maxVelocity);
 
 
-    /* =========================================
-       SAVE PATH
-       ========================================= */
-
-    fprintf(initialFile,
+    fprintf(file,
             "BATTLESHIP PATH\n");
-
-    fprintf(initialFile,
-            "----------------\n");
-
+    fprintf(file,
+            "----------------------------------------\n");
 
     for (int i = 0; i < k; i++)
     {
-        fprintf(initialFile,
+        fprintf(file,
                 "Point %d: (%.2f, %.2f)\n",
                 i + 1,
                 path[i].x,
@@ -530,25 +381,19 @@ int main()
     }
 
 
-    /* =========================================
-       SAVE ESCORT SHIPS
-       ========================================= */
-
-    fprintf(initialFile,
+    fprintf(file,
             "\nESCORT SHIPS\n");
-
-    fprintf(initialFile,
-            "------------\n");
-
+    fprintf(file,
+            "----------------------------------------\n");
 
     for (int i = 0; i < N; i++)
     {
-        fprintf(initialFile,
-                "E%d | Type: E%c | "
-                "Position: (%.2f, %.2f) | "
-                "Velocity: %.2f - %.2f m/s | "
-                "Minimum Angle: %.2f degrees | "
-                "Impact Power: %.2f\n",
+        fprintf(file,
+                "E%d | Type EA-E%c | "
+                "Position (%.2f, %.2f) | "
+                "Vmin %.2f | Vmax %.2f | "
+                "Min Angle %.2f | "
+                "Impact Power %.2f\n",
 
                 escorts[i].id,
                 escorts[i].type,
@@ -563,104 +408,179 @@ int main()
                 escorts[i].impactPower);
     }
 
-
-    fclose(initialFile);
-
-
-    /* =========================================
-       CREATE RESULT FILE
-       ========================================= */
-
-    resultFile =
-        fopen("part1B_simulation1_results.txt", "w");
+    fclose(file);
+}
 
 
-    if (resultFile == NULL)
+/* =========================================
+   RUN ONE SIMULATION
+   ========================================= */
+
+void runSimulation(
+    int simulationNumber,
+    int D,
+    int N,
+    int k,
+    int t,
+    double thetaMin,
+    Battleship B,
+    EscortShip escorts[],
+    Point path[])
+{
+    char filename[100];
+
+    sprintf(filename,
+            "simulation%d_results.txt",
+            simulationNumber);
+
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL)
     {
         printf("Error creating result file.\n");
-        return 1;
+        return;
     }
 
 
-    fprintf(resultFile,
-            "PART 1-B - SIMULATION 1 RESULTS\n");
+    fprintf(file,
+            "PART 1-B - SIMULATION %d\n",
+            simulationNumber);
 
-    fprintf(resultFile,
-            "====================================\n\n");
+    fprintf(file,
+            "========================================\n\n");
 
 
-    /* =========================================
-       SIMULATE EACH PATH POINT
-       ========================================= */
+    printf("\n\n");
+    printf("========================================\n");
 
-    for (int point = 0;
-         point < k;
-         point++)
+    if (simulationNumber == 1)
     {
-        double iterationEndTime = 0.0;
+        printf("      PART 1-B - SIMULATION 1\n");
+    }
+    else
+    {
+        printf("      PART 1-B - SIMULATION 2\n");
+    }
+
+    printf("========================================\n");
+
+
+    int battleshipDestroyed = 0;
+
+    int totalDestroyed = 0;
+
+    double totalBattleTime = 0.0;
+
+
+    /*
+       ----------------------------------------
+       ITERATIONS
+       ----------------------------------------
+    */
+
+    for (int iteration = 0;
+         iteration < k;
+         iteration++)
+    {
+        double iterationTime = 0.0;
+
         int destroyedThisIteration = 0;
 
 
-        /* Move Battleship to this path point */
+        /*
+           Move B to the current path point.
+        */
+        B.x = path[iteration].x;
+        B.y = path[iteration].y;
 
-        B.x = path[point].x;
-        B.y = path[point].y;
+
+        /*
+           Determine B's minimum firing angle.
+
+           Simulation 1:
+           0 degrees to 90 degrees.
+
+           Simulation 2:
+           Before t: 0 to 90
+           After t: thetaMin to 90
+        */
+        double B_minimumAngle = 0.0;
+
+
+        if (simulationNumber == 2 &&
+            iteration + 1 > t)
+        {
+            B_minimumAngle = thetaMin;
+        }
 
 
         printf("\n");
-        printf("========================================\n");
+        printf("----------------------------------------\n");
 
         printf("ITERATION %d / %d\n",
-               point + 1,
-               k);
+               iteration + 1, k);
 
-        printf("========================================\n");
+        printf("----------------------------------------\n");
 
-        printf("B position: (%.2f, %.2f)\n",
-               B.x,
-               B.y);
+        printf("B Position: (%.2f, %.2f)\n",
+               B.x, B.y);
 
 
-        fprintf(resultFile,
-                "\n====================================\n");
+        fprintf(file,
+                "\n----------------------------------------\n");
 
-        fprintf(resultFile,
+        fprintf(file,
                 "ITERATION %d / %d\n",
-                point + 1,
-                k);
+                iteration + 1, k);
 
-        fprintf(resultFile,
-                "====================================\n");
+        fprintf(file,
+                "----------------------------------------\n");
 
-        fprintf(resultFile,
-                "B Position: (%.2f, %.2f)\n\n",
-                B.x,
-                B.y);
+        fprintf(file,
+                "B Position: (%.2f, %.2f)\n",
+                B.x, B.y);
+
+
+        if (simulationNumber == 2)
+        {
+            if (iteration + 1 <= t)
+            {
+                printf("B Gun: NORMAL (0 - 90 degrees)\n");
+
+                fprintf(file,
+                        "B Gun: NORMAL (0 - 90 degrees)\n");
+            }
+            else
+            {
+                printf("B Gun: JAMMED (%.2f - 90 degrees)\n",
+                       thetaMin);
+
+                fprintf(file,
+                        "B Gun: JAMMED (%.2f - 90 degrees)\n",
+                        thetaMin);
+            }
+        }
 
 
         /* =====================================
-           B ATTACKS SURVIVING E SHIPS
+           B ATTACKS E SHIPS
            ===================================== */
 
-        printf("\nBATTLESHP B ATTACKS\n");
+        printf("\nBATTLESHIP B ATTACKS\n");
+
+        fprintf(file,
+                "\nBATTLESHIP B ATTACKS\n");
 
 
         for (int i = 0; i < N; i++)
         {
-            double distance;
-            double angle;
-            double timeToHit;
-
-
-            /* Destroyed ships do not participate */
-
             if (escorts[i].destroyed)
             {
                 continue;
             }
 
 
-            distance =
+            double distance =
                 calculateDistance(
                     B.x,
                     B.y,
@@ -669,11 +589,11 @@ int main()
                 );
 
 
-            angle =
+            double angle =
                 calculateFiringAngle(
                     B.maxVelocity,
                     distance,
-                    0.0
+                    B_minimumAngle
                 );
 
 
@@ -684,28 +604,25 @@ int main()
                    distance);
 
 
-            fprintf(resultFile,
-                    "B -> E%d\n",
+            fprintf(file,
+                    "\nB -> E%d\n",
                     escorts[i].id);
 
-            fprintf(resultFile,
+            fprintf(file,
                     "Distance: %.2f m\n",
                     distance);
 
 
-            /* Check if target is in range */
-
             if (angle < 0)
             {
-                printf("Result: OUT OF RANGE\n");
+                printf("Result: OUT OF RANGE / ANGLE NOT AVAILABLE\n");
 
-                fprintf(resultFile,
-                        "Result: OUT OF RANGE\n\n");
+                fprintf(file,
+                        "Result: OUT OF RANGE / ANGLE NOT AVAILABLE\n");
             }
-
             else
             {
-                timeToHit =
+                double timeToHit =
                     calculateTimeOfFlight(
                         B.maxVelocity,
                         angle
@@ -716,35 +633,35 @@ int main()
 
                 destroyedThisIteration++;
 
+                totalDestroyed++;
 
-                if (timeToHit >
-                    iterationEndTime)
+
+                if (timeToHit > iterationTime)
                 {
-                    iterationEndTime =
-                        timeToHit;
+                    iterationTime = timeToHit;
                 }
 
 
-                printf("Angle: %.2f degrees\n",
+                printf("Firing Angle: %.2f degrees\n",
                        angle);
 
-                printf("Time to hit: %.2f seconds\n",
+                printf("Time to Hit: %.2f seconds\n",
                        timeToHit);
 
                 printf("Result: E%d DESTROYED\n",
                        escorts[i].id);
 
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Firing Angle: %.2f degrees\n",
                         angle);
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Time to Hit: %.2f seconds\n",
                         timeToHit);
 
-                fprintf(resultFile,
-                        "Result: E%d DESTROYED\n\n",
+                fprintf(file,
+                        "Result: E%d DESTROYED\n",
                         escorts[i].id);
             }
         }
@@ -756,28 +673,22 @@ int main()
 
         printf("\nESCORT ATTACKS\n");
 
-
-        fprintf(resultFile,
+        fprintf(file,
                 "\nESCORT ATTACKS\n");
 
 
         for (int i = 0; i < N; i++)
         {
-            double distance;
-            double velocity;
-            double angle;
-            double timeToHit;
-
-
-            /* Destroyed E ships cannot attack */
-
+            /*
+               Destroyed E ships cannot attack.
+            */
             if (escorts[i].destroyed)
             {
                 continue;
             }
 
 
-            distance =
+            double distance =
                 calculateDistance(
                     escorts[i].x,
                     escorts[i].y,
@@ -786,14 +697,18 @@ int main()
                 );
 
 
-            velocity =
+            /*
+               Select a velocity from the
+               generated velocity range.
+            */
+            double velocity =
                 randomDouble(
                     escorts[i].minVelocity,
                     escorts[i].maxVelocity
                 );
 
 
-            angle =
+            double angle =
                 calculateFiringAngle(
                     velocity,
                     distance,
@@ -808,11 +723,11 @@ int main()
                    distance);
 
 
-            fprintf(resultFile,
+            fprintf(file,
                     "\nE%d -> B\n",
                     escorts[i].id);
 
-            fprintf(resultFile,
+            fprintf(file,
                     "Distance: %.2f m\n",
                     distance);
 
@@ -821,44 +736,43 @@ int main()
             {
                 printf("Result: OUT OF RANGE\n");
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Result: OUT OF RANGE\n");
             }
-
             else
             {
-                timeToHit =
+                double timeToHit =
                     calculateTimeOfFlight(
                         velocity,
                         angle
                     );
 
 
-                printf("Angle: %.2f degrees\n",
-                       angle);
-
                 printf("Velocity: %.2f m/s\n",
                        velocity);
 
-                printf("Time to hit: %.2f seconds\n",
+                printf("Angle: %.2f degrees\n",
+                       angle);
+
+                printf("Time to Hit: %.2f seconds\n",
                        timeToHit);
 
                 printf("Result: B DESTROYED\n");
 
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Velocity: %.2f m/s\n",
                         velocity);
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Angle: %.2f degrees\n",
                         angle);
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Time to Hit: %.2f seconds\n",
                         timeToHit);
 
-                fprintf(resultFile,
+                fprintf(file,
                         "Result: B DESTROYED\n");
 
 
@@ -867,14 +781,16 @@ int main()
                 battleshipDestroyed = 1;
 
 
-                if (timeToHit >
-                    iterationEndTime)
+                if (timeToHit > iterationTime)
                 {
-                    iterationEndTime =
-                        timeToHit;
+                    iterationTime = timeToHit;
                 }
 
 
+                /*
+                   Stop checking other E ships
+                   because B is already destroyed.
+                */
                 break;
             }
         }
@@ -884,60 +800,42 @@ int main()
            ITERATION SUMMARY
            ===================================== */
 
-        printf("\nIteration %d complete.\n",
-               point + 1);
+        totalBattleTime += iterationTime;
 
-        printf("Escort ships destroyed this iteration: %d\n",
+
+        printf("\nIteration %d complete.\n",
+               iteration + 1);
+
+        printf("Escort ships destroyed: %d\n",
                destroyedThisIteration);
 
-        printf("Iteration end time: %.2f seconds\n",
-               iterationEndTime);
+        printf("Iteration time: %.2f seconds\n",
+               iterationTime);
 
 
-        fprintf(resultFile,
+        fprintf(file,
                 "\nITERATION SUMMARY\n");
 
-        fprintf(resultFile,
-                "Escort ships destroyed this iteration: %d\n",
+        fprintf(file,
+                "Escort ships destroyed: %d\n",
                 destroyedThisIteration);
 
-        fprintf(resultFile,
-                "Iteration end time: %.2f seconds\n",
-                iterationEndTime);
+        fprintf(file,
+                "Iteration time: %.2f seconds\n",
+                iterationTime);
 
 
-        /* =====================================
-           CHECK IF B WAS DESTROYED
-           ===================================== */
+        /*
+           Show remaining E ships.
+        */
 
-        if (battleshipDestroyed)
-        {
-            printf("\nBATTLESHIP B HAS BEEN DESTROYED!\n");
+        printf("Remaining Escort Ships: ");
 
-            printf("Simulation stopped at iteration %d.\n",
-                   point + 1);
+        fprintf(file,
+                "Remaining Escort Ships: ");
 
 
-            fprintf(resultFile,
-                    "\nBATTLESHIP B HAS BEEN DESTROYED!\n");
-
-            fprintf(resultFile,
-                    "Simulation stopped at iteration %d.\n",
-                    point + 1);
-
-            break;
-        }
-
-
-        /* =====================================
-           SHOW SURVIVING E SHIPS
-           ===================================== */
-
-        printf("\nSurviving Escort Ships:\n");
-
-        fprintf(resultFile,
-                "\nSurviving Escort Ships:\n");
-
+        int remaining = 0;
 
         for (int i = 0; i < N; i++)
         {
@@ -946,17 +844,48 @@ int main()
                 printf("E%d ",
                        escorts[i].id);
 
-                fprintf(resultFile,
+                fprintf(file,
                         "E%d ",
                         escorts[i].id);
+
+                remaining++;
             }
+        }
+
+
+        if (remaining == 0)
+        {
+            printf("None");
+            fprintf(file, "None");
         }
 
 
         printf("\n");
 
-        fprintf(resultFile,
-                "\n");
+        fprintf(file, "\n");
+
+
+        /*
+           If B is destroyed, stop.
+        */
+
+        if (battleshipDestroyed)
+        {
+            printf("\nBATTLESHIP B HAS BEEN DESTROYED!\n");
+
+            printf("Simulation stopped at iteration %d.\n",
+                   iteration + 1);
+
+
+            fprintf(file,
+                    "\nBATTLESHIP B HAS BEEN DESTROYED!\n");
+
+            fprintf(file,
+                    "Simulation stopped at iteration %d.\n",
+                    iteration + 1);
+
+            break;
+        }
     }
 
 
@@ -964,68 +893,64 @@ int main()
        FINAL RESULT
        ========================================= */
 
-    printf("\n========================================\n");
-    printf("          FINAL SIMULATION RESULT\n");
+    printf("\n");
+    printf("========================================\n");
+    printf("FINAL RESULT - SIMULATION %d\n",
+           simulationNumber);
     printf("========================================\n");
 
 
-    fprintf(resultFile,
-            "\n====================================\n");
+    fprintf(file,
+            "\n========================================\n");
 
-    fprintf(resultFile,
-            "FINAL SIMULATION RESULT\n");
+    fprintf(file,
+            "FINAL RESULT - SIMULATION %d\n",
+            simulationNumber);
 
-    fprintf(resultFile,
-            "====================================\n");
+    fprintf(file,
+            "========================================\n");
 
 
     if (battleshipDestroyed)
     {
         printf("Battleship B: DESTROYED\n");
 
-        fprintf(resultFile,
+        fprintf(file,
                 "Battleship B: DESTROYED\n");
     }
-
     else
     {
-        int totalDestroyed = 0;
-
-
-        for (int i = 0; i < N; i++)
-        {
-            if (escorts[i].destroyed)
-            {
-                totalDestroyed++;
-            }
-        }
-
-
         printf("Battleship B: SURVIVED\n");
 
-        printf("Escort ships destroyed: %d / %d\n",
-               totalDestroyed,
-               N);
-
-
-        fprintf(resultFile,
+        fprintf(file,
                 "Battleship B: SURVIVED\n");
-
-        fprintf(resultFile,
-                "Escort ships destroyed: %d / %d\n",
-                totalDestroyed,
-                N);
     }
+
+
+    printf("Escort ships destroyed: %d / %d\n",
+           totalDestroyed, N);
+
+    printf("Total simulation time: %.2f seconds\n",
+           totalBattleTime);
+
+
+    fprintf(file,
+            "Escort ships destroyed: %d / %d\n",
+            totalDestroyed, N);
+
+    fprintf(file,
+            "Total simulation time: %.2f seconds\n",
+            totalBattleTime);
 
 
     /* =========================================
-       FINAL SHIP STATUS
+       FINAL ESCORT STATUS
        ========================================= */
 
-    printf("\nFinal Escort Ship Status:\n");
+    printf("\nFINAL ESCORT STATUS\n");
 
-    fprintf(resultFile,
-            "\nFinal Escort Ship Status:\n");
+    fprintf(file,
+            "\nFINAL ESCORT STATUS\n");
 
 
     for (int i = 0; i < N; i++)
@@ -1037,7 +962,7 @@ int main()
                    : "ALIVE");
 
 
-        fprintf(resultFile,
+        fprintf(file,
                 "E%d: %s\n",
                 escorts[i].id,
                 escorts[i].destroyed
@@ -1046,18 +971,387 @@ int main()
     }
 
 
-    fclose(resultFile);
+    fclose(file);
 
 
-    /* =========================================
-       FILE INFORMATION
-       ========================================= */
+    printf("\nOutput saved to: %s\n",
+           filename);
+}
 
-    printf("\nOutput files created:\n");
 
-    printf("1. initial_conditions_1B.txt\n");
+/* =========================================
+   MAIN
+   ========================================= */
 
-    printf("2. part1B_simulation1_results.txt\n");
+int main()
+{
+    int D;
+    int N;
+    int k;
+
+    int t;
+
+    int battleshipChoice;
+
+    int seed;
+
+    double thetaMin;
+
+    double battleshipMaxVelocity;
+
+
+    Battleship B;
+
+    EscortShip escorts[MAX_ESCORTS];
+
+    EscortShip initialEscorts[MAX_ESCORTS];
+
+    EscortShip simulationEscorts[MAX_ESCORTS];
+
+    Point path[MAX_POINTS];
+
+
+    char escortTypes[] =
+        {'A', 'B', 'C', 'D', 'E'};
+
+
+    /* =====================================
+       TITLE
+       ===================================== */
+
+    printf("========================================\n");
+    printf("      ADVANCED NAVAL BATTLE SIMULATOR\n");
+    printf("========================================\n");
+
+
+    /* =====================================
+       RANDOM SEED
+       ===================================== */
+
+    printf("\nEnter random seed: ");
+    scanf("%d", &seed);
+
+    srand(seed);
+
+
+    /* =====================================
+       BATTLEFIELD
+       ===================================== */
+
+    printf("\nEnter battlefield size D: ");
+    scanf("%d", &D);
+
+    if (D <= 0)
+    {
+        printf("Invalid battlefield size.\n");
+        return 1;
+    }
+
+
+    /* =====================================
+       ESCORT SHIPS
+       ===================================== */
+
+    printf("Enter number of escort ships N: ");
+    scanf("%d", &N);
+
+    if (N <= 0 || N > MAX_ESCORTS)
+    {
+        printf("Invalid number of escort ships.\n");
+        return 1;
+    }
+
+
+    /* =====================================
+       PATH POINTS
+       ===================================== */
+
+    printf("Enter number of path points k: ");
+    scanf("%d", &k);
+
+    if (k <= 1 || k > MAX_POINTS)
+    {
+        printf("k must be greater than 1.\n");
+        return 1;
+    }
+
+
+    /* =====================================
+       SIMULATION 2 SETTINGS
+       ===================================== */
+
+    printf("\nEnter gun jam iteration t (0 < t < k): ");
+    scanf("%d", &t);
+
+    if (t <= 0 || t >= k)
+    {
+        printf("Invalid t. It must satisfy 0 < t < k.\n");
+        return 1;
+    }
+
+
+    printf("Enter theta_min (0 < theta_min < 30): ");
+    scanf("%lf", &thetaMin);
+
+    if (thetaMin <= 0 || thetaMin >= 30)
+    {
+        printf("Invalid theta_min.\n");
+        return 1;
+    }
+
+
+    /* =====================================
+       BATTLESHIP
+       ===================================== */
+
+    printf("\nSelect Battleship:\n");
+
+    printf("1. USS Iowa\n");
+    printf("2. MS King George V\n");
+    printf("3. Richelieu\n");
+    printf("4. Sovetsky Soyuz-class\n");
+
+    printf("Enter choice: ");
+    scanf("%d", &battleshipChoice);
+
+
+    switch (battleshipChoice)
+    {
+        case 1:
+            B.type = 'U';
+            break;
+
+        case 2:
+            B.type = 'M';
+            break;
+
+        case 3:
+            B.type = 'R';
+            break;
+
+        case 4:
+            B.type = 'S';
+            break;
+
+        default:
+            printf("Invalid Battleship choice.\n");
+            return 1;
+    }
+
+
+    printf("\nEnter Battleship maximum shell velocity: ");
+    scanf("%lf", &battleshipMaxVelocity);
+
+    if (battleshipMaxVelocity <= 0)
+    {
+        printf("Velocity must be greater than zero.\n");
+        return 1;
+    }
+
+
+    B.maxVelocity = battleshipMaxVelocity;
+
+    B.destroyed = 0;
+
+
+    /* =====================================
+       GENERATE ESCORT SHIPS
+       ===================================== */
+
+    printf("\nGenerating Escort Ships...\n");
+
+
+    for (int i = 0; i < N; i++)
+    {
+        escorts[i].id = i + 1;
+
+        escorts[i].type =
+            escortTypes[rand() % 5];
+
+        escorts[i].x =
+            randomDouble(0, D);
+
+        escorts[i].y =
+            randomDouble(0, D);
+
+        escorts[i].destroyed = 0;
+
+
+        setEscortProperties(
+            &escorts[i],
+            B.maxVelocity
+        );
+
+
+        printf("E%d | Type EA-E%c | "
+               "Position (%.2f, %.2f)\n",
+               escorts[i].id,
+               escorts[i].type,
+               escorts[i].x,
+               escorts[i].y);
+    }
+
+
+    /* =====================================
+       SAVE ORIGINAL ESCORT CONDITIONS
+       ===================================== */
+
+    copyEscorts(
+        escorts,
+        initialEscorts,
+        N
+    );
+
+
+    /* =====================================
+       GENERATE B PATH
+       ===================================== */
+
+    printf("\nGenerating Battleship path...\n");
+
+
+    for (int i = 0; i < k; i++)
+    {
+        path[i].x =
+            randomDouble(0, D);
+
+        path[i].y =
+            randomDouble(0, D);
+
+
+        printf("Point %d: (%.2f, %.2f)\n",
+               i + 1,
+               path[i].x,
+               path[i].y);
+    }
+
+
+    /*
+       Initial B position is first point.
+    */
+
+    B.x = path[0].x;
+    B.y = path[0].y;
+
+
+    /* =====================================
+       SAVE INITIAL CONDITIONS
+       ===================================== */
+
+    saveInitialConditions(
+        D,
+        N,
+        k,
+        t,
+        thetaMin,
+        &B,
+        initialEscorts,
+        path
+    );
+
+
+    printf("\nInitial conditions saved.\n");
+
+
+    /* =====================================
+       SIMULATION 1
+       ===================================== */
+
+    copyEscorts(
+        initialEscorts,
+        simulationEscorts,
+        N
+    );
+
+
+    /*
+       Reset B.
+    */
+
+    B.destroyed = 0;
+
+    B.x = path[0].x;
+    B.y = path[0].y;
+
+
+    runSimulation(
+        1,
+        D,
+        N,
+        k,
+        t,
+        thetaMin,
+        B,
+        simulationEscorts,
+        path
+    );
+
+
+    /* =====================================
+       SIMULATION 2
+       ===================================== */
+
+    printf("\n\n");
+    printf("========================================\n");
+    printf("RESETTING TO SAME INITIAL CONDITIONS\n");
+    printf("FOR SIMULATION 2\n");
+    printf("========================================\n");
+
+
+    /*
+       IMPORTANT:
+       Start Simulation 2 from the original
+       battlefield again.
+
+       This satisfies the assignment's
+       "same initial conditions" requirement.
+    */
+
+    copyEscorts(
+        initialEscorts,
+        simulationEscorts,
+        N
+    );
+
+
+    B.destroyed = 0;
+
+    B.x = path[0].x;
+    B.y = path[0].y;
+
+
+    runSimulation(
+        2,
+        D,
+        N,
+        k,
+        t,
+        thetaMin,
+        B,
+        simulationEscorts,
+        path
+    );
+
+
+    /* =====================================
+       FINISHED
+       ===================================== */
+
+    printf("\n");
+    printf("========================================\n");
+    printf("      PART 1-B COMPLETED\n");
+    printf("========================================\n");
+
+    printf("\nFiles created:\n");
+
+    printf("1. initial_conditions.txt\n");
+    printf("2. simulation1_results.txt\n");
+    printf("3. simulation2_results.txt\n");
+
+    printf("\nSimulation 1 = normal gun\n");
+    printf("Simulation 2 = gun jams after t iterations\n");
+    printf("Simulation 2 angle range = %.2f - 90 degrees\n",
+           thetaMin);
 
 
     return 0;
