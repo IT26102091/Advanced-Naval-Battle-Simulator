@@ -337,6 +337,9 @@ void runSimulation(int simulationNumber,
                    EscortShip escorts[],
                    Point path[]) {
 
+    /* D is part of the simulation settings and is saved in the report. */
+    (void)D;
+
     char filename[100];
 
     sprintf(filename,
@@ -970,11 +973,87 @@ void runSimulation(int simulationNumber,
 }
 
 
+/* Display the current Part 1-C instructions */
+void showInstructions(void) {
+
+    printf("\n========================================\n");
+    printf("           PART 1-C INSTRUCTIONS\n");
+    printf("========================================\n");
+
+    printf("1. Start Simulation asks for the battlefield\n");
+    printf("   settings, battleship, and random seed.\n");
+    printf("2. The same initial conditions are used for\n");
+    printf("   Simulation 1 and Simulation 2.\n");
+    printf("3. Simulation 1 uses the normal B gun.\n");
+    printf("4. In Simulation 2, B's gun becomes jammed\n");
+    printf("   after t iterations and must use theta_min.\n");
+    printf("5. Escort hits add cumulative damage to B.\n");
+    printf("   B is destroyed only at 100%% damage.\n");
+    printf("6. Each escort can attack once, while B can\n");
+    printf("   destroy an escort with one successful hit.\n");
+    printf("\nSaved result files can be viewed from\n");
+    printf("Simulation Statistics after a simulation.\n");
+}
+
+
+/* Display one saved text file, if it exists */
+void displaySavedFile(const char *filename) {
+
+    FILE *file;
+    int character;
+
+    file = fopen(filename, "r");
+
+    if (file == NULL) {
+        printf("\n%s was not found.\n", filename);
+        return;
+    }
+
+    printf("\n========================================\n");
+    printf("%s\n", filename);
+    printf("========================================\n");
+
+    while ((character = fgetc(file)) != EOF) {
+        putchar(character);
+    }
+
+    fclose(file);
+}
+
+
+/* Display the Part 1-C files created by Start Simulation */
+void viewStatistics(void) {
+
+    printf("\n========================================\n");
+    printf("        SIMULATION STATISTICS\n");
+    printf("========================================\n");
+
+    displaySavedFile("initial_conditions_part1C.txt");
+    displaySavedFile("part1C_simulation1_results.txt");
+    displaySavedFile("part1C_simulation2_results.txt");
+}
+
+
+/* Wait so the user can read a menu page */
+void waitForEnter(void) {
+
+    int character;
+
+    printf("\nPress Enter to return to the menu...");
+
+    while ((character = getchar()) != '\n' &&
+           character != EOF) {
+    }
+
+    getchar();
+}
+
+
 /* ==========================================
-   MAIN PROGRAM
+   START SIMULATION
    ========================================== */
 
-int main() {
+int startSimulation(void) {
 
     int D;
     int N;
@@ -1343,6 +1422,70 @@ int main() {
 
     printf("Cumulative damage is now applied to B.\n");
 
+
+    return 0;
+}
+
+
+/* ==========================================
+   MAIN MENU
+   ========================================== */
+
+int main(void) {
+
+    int choice;
+    int inputResult;
+    int character;
+
+    do {
+        printf("\n========================================\n");
+        printf("       NAVAL BATTLE SIMULATOR\n");
+        printf("========================================\n");
+        printf("1. Start Simulation\n");
+        printf("2. View Instructions\n");
+        printf("3. Simulation Statistics\n");
+        printf("4. Exit\n");
+        printf("Enter choice: ");
+
+        inputResult = scanf("%d", &choice);
+
+        if (inputResult != 1) {
+            printf("Please enter a number from 1 to 4.\n");
+
+            while ((character = getchar()) != '\n' &&
+                   character != EOF) {
+            }
+
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                startSimulation();
+                waitForEnter();
+                break;
+
+            case 2:
+                showInstructions();
+                waitForEnter();
+                break;
+
+            case 3:
+                viewStatistics();
+                waitForEnter();
+                break;
+
+            case 4:
+                printf("\nThank you for using the Naval Battle Simulator.\n");
+                break;
+
+            default:
+                printf("Invalid choice. Please choose 1, 2, 3, or 4.\n");
+                waitForEnter();
+                break;
+        }
+
+    } while (choice != 4);
 
     return 0;
 }
