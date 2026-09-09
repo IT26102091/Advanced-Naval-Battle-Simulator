@@ -2,6 +2,14 @@
 #include <stdlib.h>
 #include <math.h>
 
+/*
+   This project stays a console program.  The small Win32 section below opens
+   a separate battlefield window and uses only Windows libraries that are
+   already part of MinGW/Visual Studio (user32 and gdi32).
+*/
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #define MAX_ESCORTS 100
 #define MAX_POINTS 100
 #define PI 3.14159265358979323846
@@ -27,6 +35,237 @@ typedef struct {
 typedef struct {
     double x, y;
 } Point;
+
+
+/* ==========================================
+   GRAPHICAL BATTLEFIELD - FIRST MILESTONE
+   ========================================== */
+
+typedef struct {
+    int D;
+    int N;
+    int k;
+    int jamIteration;
+    double thetaMin;
+    Battleship battleship;
+    EscortShip escorts[MAX_ESCORTS];
+    Point path[MAX_POINTS];
+} BattlefieldView;
+
+static BattlefieldView battlefieldView;
+
+/* Defined with the rest of the simulation helpers below. */
+const char *getBattleshipName(char type);
+
+
+/* Convert a simulation coordinate (0..D) into a screen coordinate. */
+static int mapBattlefieldX(double x, const RECT *area) {
+    return area->left + (int)((x / battlefieldView.D) *
+                              (area->right - area->left));
+}
+
+static int mapBattlefieldY(double y, const RECT *area) {
+    /* Simulation y increases upward; Windows y increases downward. */
+    return area->bottom - (int)((y / battlefieldView.D) *
+                                (area->bottom - area->top));
+}
+
+
+static void drawShip(HDC dc, int x, int y, COLORREF colour,
+                     const char *label, int large) {
+    POINT hull[3];
+    int halfWidth = large ? 14 : 10;
+    int height = large ? 24 : 18;
+    HBRUSH brush = CreateSolidBrush(colour);
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(15, 28, 45));
+    HBRUSH oldBrush = (HBRUSH)SelectObject(dc, brush);
+    HPEN oldPen = (HPEN)SelectObject(dc, pen);
+
+    hull[0].x = x;
+    hull[0].y = y - height / 2;
+    hull[1].x = x - halfWidth;
+    hull[1].y = y + height / 2;
+    hull[2].x = x + halfWidth;
+    hull[2].y = y + height / 2;
+    Polygon(dc, hull, 3);
+
+    SelectObject(dc, oldBrush);
+    SelectObject(dc, oldPen);
+    DeleteObject(brush);
+    DeleteObject(pen);
+
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(245, 249, 255));
+    TextOutA(dc, x + halfWidth + 4, y - 7, label, lstrlenA(label));
+}
+
+
+static void drawBattlefield(HDC dc, int width, int height) {
+    RECT board;
+    RECT panel;
+    int boardSide = height - 90;
+    HBRUSH ocean = CreateSolidBrush(RGB(22, 73, 112));
+    HBRUSH panelBrush = CreateSolidBrush(RGB(235, 242, 248));
+    HPEN gridPen = CreatePen(PS_SOLID, 1, RGB(82, 142, 180));
+    HPEN oldGridPen;
+    char text[160];
+    int i;
+
+    if (boardSide > width - 330)
+        boardSide = width - 330;
+    if (boardSide < 100)
+        boardSide = 100;
+
+    /* Keep the simulation field square regardless of the window shape. */
+    board.left = 30;
+    board.top = 55;
+    board.right = board.left + boardSide;
+    board.bottom = board.top + boardSide;
+    panel.left = board.right + 30;
+    panel.top = 25;
+    panel.right = width - 25;
+    panel.bottom = height - 25;
+
+    FillRect(dc, &board, ocean);
+    FillRect(dc, &panel, panelBrush);
+    DeleteObject(ocean);
+    DeleteObject(panelBrush);
+
+    oldGridPen = (HPEN)SelectObject(dc, gridPen);
+    for (i = 0; i <= 10; i++) {
+        int x = board.left + i * (board.right - board.left) / 10;
+        int y = board.top + i * (board.bottom - board.top) / 10;
+        MoveToEx(dc, x, board.top, NULL);
+        LineTo(dc, x, board.bottom);
+        MoveToEx(dc, board.left, y, NULL);
+        LineTo(dc, board.right, y);
+    }
+    SelectObject(dc, oldGridPen);
+    DeleteObject(gridPen);
+
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(20, 44, 66));
+    TextOutA(dc, 30, 18, "GRAPHICAL BATTLEFIELD", 21);
+
+    /* Show the generated Battleship path as a dashed guide. */
+    if (battlefieldView.k > 1) {
+        HPEN pathPen = CreatePen(PS_DASH, 1, RGB(255, 220, 90));
+        HPEN oldPathPen = (HPEN)SelectObject(dc, pathPen);
+        MoveToEx(dc, mapBattlefieldX(battlefieldView.path[0].x, &board),
+                 mapBattlefieldY(battlefieldView.path[0].y, &board), NULL);
+        for (i = 1; i < battlefieldView.k; i++) {
+            LineTo(dc, mapBattlefieldX(battlefieldView.path[i].x, &board),
+                   mapBattlefieldY(battlefieldView.path[i].y, &board));
+        }
+        SelectObject(dc, oldPathPen);
+        DeleteObject(pathPen);
+    }
+
+    for (i = 0; i < battlefieldView.N; i++) {
+        char label[16];
+        wsprintfA(label, "E%d", battlefieldView.escorts[i].id);
+        drawShip(dc,
+                 mapBattlefieldX(battlefieldView.escorts[i].x, &board),
+                 mapBattlefieldY(battlefieldView.escorts[i].y, &board),
+                 RGB(220, 91, 74), label, 0);
+    }
+
+    drawShip(dc, mapBattlefieldX(battlefieldView.battleship.x, &board),
+             mapBattlefieldY(battlefieldView.battleship.y, &board),
+             RGB(55, 181, 116), "B", 1);
+
+    SetTextColor(dc, RGB(20, 44, 66));
+    wsprintfA(text, "STATUS PANEL");
+    TextOutA(dc, panel.left + 18, panel.top + 18, text, lstrlenA(text));
+    wsprintfA(text, "Battlefield: %d x %d", battlefieldView.D, battlefieldView.D);
+    TextOutA(dc, panel.left + 18, panel.top + 58, text, lstrlenA(text));
+    wsprintfA(text, "Battleship: %s", getBattleshipName(battlefieldView.battleship.type));
+    TextOutA(dc, panel.left + 18, panel.top + 86, text, lstrlenA(text));
+    wsprintfA(text, "Position: (%.1f, %.1f)", battlefieldView.battleship.x,
+              battlefieldView.battleship.y);
+    TextOutA(dc, panel.left + 18, panel.top + 114, text, lstrlenA(text));
+    wsprintfA(text, "Escorts: %d", battlefieldView.N);
+    TextOutA(dc, panel.left + 18, panel.top + 142, text, lstrlenA(text));
+    wsprintfA(text, "Path points: %d", battlefieldView.k);
+    TextOutA(dc, panel.left + 18, panel.top + 170, text, lstrlenA(text));
+    wsprintfA(text, "Gun jam: iteration %d", battlefieldView.jamIteration);
+    TextOutA(dc, panel.left + 18, panel.top + 198, text, lstrlenA(text));
+    wsprintfA(text, "Minimum angle: %.1f degrees", battlefieldView.thetaMin);
+    TextOutA(dc, panel.left + 18, panel.top + 226, text, lstrlenA(text));
+    TextOutA(dc, panel.left + 18, panel.bottom - 42,
+             "Close this window to start the", 30);
+    TextOutA(dc, panel.left + 18, panel.bottom - 22,
+             "existing console simulations.", 29);
+}
+
+
+static LRESULT CALLBACK battlefieldWindowProc(HWND window, UINT message,
+                                               WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_PAINT: {
+            PAINTSTRUCT paint;
+            RECT client;
+            HDC dc = BeginPaint(window, &paint);
+            GetClientRect(window, &client);
+            drawBattlefield(dc, client.right, client.bottom);
+            EndPaint(window, &paint);
+            return 0;
+        }
+        case WM_KEYDOWN:
+            if (wParam == VK_ESCAPE)
+                DestroyWindow(window);
+            return 0;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+    }
+    return DefWindowProc(window, message, wParam, lParam);
+}
+
+
+/* Open the initial battlefield view.  Closing it returns to the old menu flow. */
+void showBattlefield(int D, int N, int k, int t, double thetaMin,
+                     const Battleship *B, const EscortShip escorts[],
+                     const Point path[]) {
+    WNDCLASSA windowClass;
+    HWND window;
+    MSG message;
+    HINSTANCE instance = GetModuleHandle(NULL);
+
+    battlefieldView.D = D;
+    battlefieldView.N = N;
+    battlefieldView.k = k;
+    battlefieldView.jamIteration = t;
+    battlefieldView.thetaMin = thetaMin;
+    battlefieldView.battleship = *B;
+    for (int i = 0; i < N; i++)
+        battlefieldView.escorts[i] = escorts[i];
+    for (int i = 0; i < k; i++)
+        battlefieldView.path[i] = path[i];
+
+    ZeroMemory(&windowClass, sizeof(windowClass));
+    windowClass.lpfnWndProc = battlefieldWindowProc;
+    windowClass.hInstance = instance;
+    windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    windowClass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    windowClass.lpszClassName = "NavalBattlefieldWindow";
+    RegisterClassA(&windowClass);
+
+    window = CreateWindowA("NavalBattlefieldWindow", "Naval Battle Simulator - Battlefield",
+                           WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+                           980, 720, NULL, NULL, instance, NULL);
+    if (window == NULL) {
+        printf("Could not open the graphical battlefield window.\n");
+        return;
+    }
+
+    ShowWindow(window, SW_SHOW);
+    UpdateWindow(window);
+    while (GetMessage(&message, NULL, 0, 0) > 0) {
+        TranslateMessage(&message);
+        DispatchMessage(&message);
+    }
+}
 
 
 /* Generate random decimal number */
@@ -1329,6 +1568,13 @@ int startSimulation(void) {
 
 
     printf("\nInitial conditions saved.\n");
+
+    /*
+       First graphical milestone: review the generated starting positions.
+       No simulation rules are changed; closing the window continues with the
+       original Simulation 1 and Simulation 2 console workflow.
+    */
+    showBattlefield(D, N, k, t, thetaMin, &B, initialEscorts, path);
 
 
     /*
